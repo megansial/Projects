@@ -1,0 +1,103 @@
+## DATA 3230: Lab 2 - Communicating Variation ##
+
+library(tidyverse)
+library(readxl)
+library(dplyr)
+library(ggplot2)
+library(see)
+library(viridis)
+
+## To answer this question, let's first read in the data ##
+nyc <- readxl::read_xlsx("Communicating How Much/NYC Trash Data.xlsx")
+View(nyc)
+
+colnames(nyc)
+
+# average monthly amount of trash collected (REFUSETONSCOLLECTED) in Queens changed from 2015 - 2021
+trash <- nyc |>
+  filter(between(YEAR, 2015, 2021)) |>
+  mutate(date = as.Date(paste(YEAR, MONTH, "01", sep = "-"))) |> # add this so plot points do not share the same x-axis value
+  group_by(date) |>                                              # formatting them this way also helps with showing the month and year
+  summarise(mean_trash = mean(REFUSETONSCOLLECTED, na.rm = TRUE), .groups = "drop")
+
+trash |>
+  glimpse()
+
+# find min and max
+minmax <- trash |>
+  filter(mean_trash == min(mean_trash) | mean_trash == max(mean_trash))
+
+minmax |>
+  glimpse()
+
+
+
+# create labels with minmax
+minmax <- minmax |>
+  mutate(label = case_when(mean_trash == min(mean_trash) ~ paste(date, "\nLowest Trash Amount Collected \nin 2015-2021"),
+                           mean_trash == max(mean_trash) ~ paste(date, "\nHighest Trash Amount Collected \nin 2015-2021"))
+  )
+
+minmax |>
+  glimpse()
+
+# create time-series plot
+trash |>
+  ggplot(aes(x=date, y=mean_trash)) +
+  geom_line(linewidth = 2) +
+  geom_point(color='royalblue', size = 3) +
+  geom_label_repel(aes(label=label), # place the new label here equal to 'label'
+                   family = 'serif',
+                   color = 'tomato',
+                   fontface= 'bold',
+                   fill = alpha('white', 0.7),
+                   size=4,
+                   nudge_y = c(-200,300),
+                   nudge_x = c(100, -100),
+                   alpha=1,
+                   data = minmax) +
+  labs(x="Year",
+       y="Average Trash Collected (Tons)",
+       title = "How Average Amount of Trash Collected Has Changed Over The Years",
+       subtitle = "From 2015 - 2021") +
+  theme_linedraw() +
+  theme(plot.title = element_text(family = "Times New Roman", face="bold", size = 18),
+        plot.subtitle = element_text(family = "Times New Roman", size = 12)) +
+  theme(axis.title.x = element_text(family = "Times New Roman", face = 'bold', size = 14),
+        axis.text.x = element_text(family = "Times New Roman", size = 12),
+        axis.title.y = element_text(family = "Times New Roman", face = 'bold', size = 14),
+        axis.text.y = element_text(family = "Times New Roman", size = 12)) +
+  scale_x_date(date_breaks = "1 year", date_labels = "%Y") +
+  scale_y_continuous(expand = expansion(mult = c(0.02, 0.05)))
+
+# get the raw data
+trash <- nyc |>
+  filter(between(YEAR, 2015, 2021))
+
+trash |>
+  glimpse()
+
+# Create Half-Violin
+trash |>
+  filter(between(YEAR, 2015, 2021), !is.na(REFUSETONSCOLLECTED)) |>
+  ggplot(aes(x=factor(YEAR), y=REFUSETONSCOLLECTED, fill = YEAR)) +
+  stat_summary(fun = median, geom = "line", aes(group = 1), color = "tomato", linewidth = 1.2) +
+  geom_violinhalf() +
+  geom_boxplot(width = 0.1, fill='white', color='black') +
+  labs(x="Year",
+       y="Average Trash Collected (Tons)",
+       title = "How Average Amount of Trash Collected Has Changed Over The Years",
+       subtitle = "From 2015 - 2021",
+       fill = "Year") +
+  theme_linedraw() +
+  theme(plot.title = element_text(family = "Times New Roman", face="bold", size = 20),
+        plot.subtitle = element_text(family = "Times New Roman", size = 15)) +
+  theme(axis.title.x = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.x = element_text(family = "Times New Roman", size = 12),
+        axis.title.y = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.y = element_text(family = "Times New Roman", size = 12),
+        legend.text = element_text(family = "Times New Roman", size = 11),
+        legend.title = element_text(family = "Times New Roman", face = "bold", size = 14)) +
+  theme(legend.key.size = unit(0.8, "cm")) +
+  scale_fill_viridis_c(option = "C")
+
