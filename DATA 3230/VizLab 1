@@ -1,0 +1,119 @@
+library(dplyr)
+library(ggplot2)
+install.packages("viridis")
+library(viridis)
+install.packages("ggiraph")
+library(ggiraph)
+
+# renaming dataset
+collegeFootball <- readxl::read_xlsx("/cloud/project/SEC College Football.xlsx")
+View(collegeFootball)
+
+# aggregating all teams since 2015 by pass_comps and pass_atts
+agg_top_10 <- aggregate(cbind(pass_comps, pass_atts) ~ team, data=collegeFootball, FUN=sum)
+print(agg_top_10)
+View(agg_top_10)
+
+# finding the completion percentages by dividing pass_comps by pass_atts and rounding it to 2 digits
+top_10_percentage <- agg_top_10 |>
+  mutate(completion_10_percent = round((pass_comps / pass_atts) * 100, digits = 2))
+print(top_10_percentage)
+View(top_10_percentage)
+
+# ordering the completion percentages by biggest to smallest and sorting the percentages into the top 10
+top_10 <- top_10_percentage |>
+  slice_max(order_by = completion_10_percent, n = 10)
+View(top_10)
+
+# aggregating all teams since 2015 by dividing fourth_down_convs by fourth_downs
+agg_top_5 <- aggregate(cbind(fourth_down_convs, fourth_downs) ~ team, data = collegeFootball, FUN=sum)
+print(agg_top_5)
+View(agg_top_5)
+
+# finding the completion percentages by dividing fourth_down_convs by fourth_downs and rounding the percentages to 2 digits
+top_5_percentage <- agg_top_5 |>
+  mutate(completion_5_percent = round((fourth_down_convs / fourth_downs) * 100, digits = 2))
+print(top_5_percentage)
+View(top_5_percentage)
+
+# ordering the completion percentages by biggest to smallest and sorting the percentages into the top 10
+top_5 <- top_5_percentage|>
+  slice_max(order_by = completion_5_percent, n=5)
+View(top_5)
+
+# creating a bar graph for the top ten programs in SEC College Football by percentages and
+# making an interactive graph with the "ggiraph" package, where you can hover over each bar 
+# to see what the specific team and percentage is for that bar.
+top_10_graph <- top_10 |>
+  ggplot(aes(x = completion_10_percent, 
+             y = reorder(team, completion_10_percent), 
+             fill = team)) +
+  geom_col_interactive(aes(tooltip = paste0("Team: ", 
+                          team, "\nCompletion %: ", 
+                          completion_10_percent, "%"), 
+                          data_id = team), 
+                          width = 0.7, 
+                          color = "black") +
+  labs(x = "Completion Percentages",
+    y = "Teams",
+    title = "Top 10 Programs for SEC College Football Since 2015",
+    subtitle = "In Terms of Completion Percentages for Passing Completions and Passing Attempts",
+    fill = "Teams") +
+  theme_light() +
+  theme(title = element_text(family = "Times New Roman", 
+                             face = "bold"),
+    text = element_text(family = "Times New Roman", 
+                        face = "italic"),
+    axis.text.x = element_text(family = 'Times New Roman', 
+                               face = 'bold.italic'),
+    axis.title.x = element_text(family = 'Times New Roman', 
+                                face = 'bold.italic'),
+    axis.text.y = element_blank(),
+    axis.title.y = element_text(family = 'Times New Roman', 
+                                face = 'bold.italic'),
+    axis.ticks.y = element_blank(),
+    legend.position = "bottom") +
+  scale_x_continuous(limits = c(0, 70)) +
+  scale_fill_viridis_d(option = "C")
+
+girafe(ggobj = top_10_graph, options = list(opts_hover(css = "fill:orange;stroke-width:1;opacity:0.6;")))
+
+# creating a bar graph for the top five programs in SEC College Football by percentages and
+# making an interactive graph with the "ggiraph" package, where you can hover over each bar 
+# to see what the specific team and percentage is for that bar.
+top_5_graph <- top_5 |>
+  ggplot(aes(x=completion_5_percent, 
+             y=reorder(team,completion_5_percent), 
+             fill=team)) +
+  geom_col_interactive(aes(tooltip = paste0("Team: ", 
+                          team, "\nCompletion %: ",
+                          completion_5_percent, "%"), 
+                          data_id = team), 
+                          width = 0.7, 
+                          color = "black") +  
+  labs(x="Completion Percentages",
+       y="Teams",
+       title="Top 5 Programs in SEC College Football Since 2015",
+       subtitle = "In Terms of Completion Percentages for Fourth Down Conversions and Fourth Down Attempts",
+       fill = "Teams") +
+  theme_light() +
+  theme(text = element_text(family = "Times New Roman")) +
+  theme(title = element_text(family = "Times New Roman", 
+                             face = "bold"),
+         text = element_text(family = "Times New Roman", 
+                             face = "italic"),
+         axis.text.x = element_text(family = 'Times New Roman', 
+                                    face = 'bold.italic'),
+         axis.title.x = element_text(family = 'Times New Roman', 
+                                     face = 'bold.italic'),
+         axis.text.y = element_blank(),
+         axis.title.y = element_text(family = 'Times New Roman', 
+                                     face = 'bold.italic'),
+         axis.ticks.y = element_blank(),
+         legend.position = "bottom") +
+  scale_x_continuous(limits = c(0, 65)) +
+  scale_fill_viridis_d(option = "F")
+
+girafe(ggobj = top_5_graph, options = list(opts_hover(css = "fill:purple;stroke-width:1;opacity:0.6;")))
+
+
