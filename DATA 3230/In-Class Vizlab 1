@@ -1,0 +1,107 @@
+## In-Class VizLab 1 - Communicating How Much ##
+
+# Data Organization
+install.packages("ggplot2")
+library(ggplot2)
+install.packages('schrute')
+options(repos = c(CRAN = "https://cran.r-project.org"))
+library(schrute)
+install.packages("dplyr")
+library(dplyr)
+
+data("theoffice")
+View(theoffice)
+
+office1 <- schrute::theoffice
+View(office1)
+
+# find total number of episodes
+total_eps <- office1 |>
+  distinct(season,episode) |>
+  nrow() # counts how lines in total are in the dataset
+
+avg_lines_per_ep <- office1 |>
+  group_by(character) |>
+  summarise(total_lines = n() / total_eps, .groups = "drop") |> # n() counts how many lines belong to each character.
+  slice_max(order_by = total_lines, n = 5)
+View(avg_lines_per_ep)
+print(avg_lines_per_ep)
+
+## Generate Base Horizontal, Ordered Bar Chart ##
+
+# Generate Base Horizontal
+avg_lines_per_ep |>
+  ggplot(aes(x=total_lines,y=character)) +
+  geom_bar(stat='identity')
+
+# to see all the colors availalbe in ggplot2
+colors()
+
+## Ordered Bar Chart ##
+avg_lines_per_ep |>
+  ggplot(aes(x=total_lines, y=reorder(character,total_lines), fill = character)) +
+  geom_bar(stat='identity', color='brown') + ## Assign colors and change color palette ##
+  # Giving each character their own associated color to fill the bars with 
+  scale_fill_manual(values = c("Michael" = "chocolate4","Dwight" = 'goldenrod2', 'Jim' = "chocolate", "Pam" = "goldenrod1","Andy"="chocolate1"))+
+  geom_label(aes(label = round(total_lines), family = 'Times New Roman'),
+             hjust = 1.1,   # nudges the label to the right of the point
+             vjust = 2.1,    # slight vertical adjustment
+             size = 4.5,
+             fill = "white", # background color of the label
+             color = "black",
+             label.size = 0.2 # border thickness (set to 0 to remove border)
+  ) +
+  ## Add Data Labels ##
+  labs(x="Number of Lines",
+       y="Name of Character",
+       title = "Characters in The Office With The Most Lines",
+       subtitle="Across All Episodes In The Office",
+       fill = "Characters") +
+    theme_light() +
+    theme(text = element_text(family = "Times New Roman")) +
+    theme(axis.text.x = element_text(family = 'Times New Roman',
+                                     face = 'bold.italic'),
+          axis.title.x = element_text(family = 'Times New Roman',
+                                      face = 'bold.italic'),
+          axis.text.y = element_blank(),
+          axis.title.y = element_text(family = 'Times New Roman',
+                                      face = 'bold.italic'),
+          axis.ticks.y = element_blank(),
+          legend.position = "bottom") 
+
+
+## Redo above code to build a horizontal ordered dot chart ##
+## Order Dot Chart ##
+avg_lines_per_ep |>
+  ggplot(aes(x=total_lines,y=reorder(character,total_lines), fill = character)) +
+  geom_point(color="brown", ## Assign colors and change color palette ##
+             shape=21,
+             alpha=0.5,
+             size=7,
+             stroke = 2) +
+  # Giving each character their own associated color to fill the dots with
+  scale_fill_manual(values = c("Michael" = "chocolate4","Dwight" = 'goldenrod2', 'Jim' = "chocolate", "Pam" = "goldenrod1","Andy"="chocolate1"))+
+  geom_label(aes(label = round(total_lines), family = 'Times New Roman'),
+             hjust = 0.55,   
+             vjust = 1.9,   
+             size = 3.5,
+             fill = "white",
+             color = "black",
+             label.size = 0.2 
+             ) +
+  ## Add Data Labels ##
+  labs(x="Number of Lines", 
+      y="Name of Character",
+      title = "Characters in The Office With The Most Lines",
+      subtitle="Across All Episodes In The Office") +
+  theme_light() +
+  theme(text = element_text(family = "Times New Roman")) + # Changes the font of all text, except for data labels
+  theme(axis.text.x = element_text(family = 'Times New Roman',
+                                   face = 'bold.italic'),
+        axis.title.x = element_text(family = 'Times New Roman',
+                                    face = 'bold.italic'),
+        axis.text.y = element_blank(),
+        axis.title.y = element_text(family = 'Times New Roman',
+                                    face = 'bold.italic'),
+        axis.ticks.y = element_blank(),
+        legend.position = "bottom") 
