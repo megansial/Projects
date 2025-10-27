@@ -1,0 +1,103 @@
+install.packages("billboard", repos = "https://cloud.r-project.org")
+library(billboard)
+
+library(dplyr)
+library(tidyverse)
+
+data("spotify_track_data")
+View(spotify_track_data)
+
+# With these data, I want to see how average danceability has changed over these years. 
+dance <- billboard::spotify_track_data |>
+  mutate(year = as.numeric(year)) |>
+  filter(between(year,1960,2015), danceability <= 1) |>
+  group_by(year) |>
+  summarise(mean_dance = mean(danceability, na.rm = TRUE), .groups = "drop")
+
+dance |>
+  glimpse()
+
+# To do this, let’s first build a time series chart.
+library(ggplot2)
+dance |>
+  ggplot(aes(x=year, y=mean_dance)) +
+  geom_point() +
+  geom_line() +
+  labs(x="Year",
+       y="Danceability Average per Year",
+       title = "How Average Danceability Has Changed Over The Years",
+       subtitle = "Billboard Top 100 from 1960 - 2016") +
+  theme_light()
+
+# This is to find the minimum and maximum in the mean_dance averages
+minmax <- dance |>
+  filter(mean_dance == min(mean_dance) | mean_dance == max(mean_dance))
+
+minmax |>
+  glimpse()
+
+# place the min and max into the function 'geom_text' to display those value on the graph
+dance |>
+  ggplot(aes(x=year, y=mean_dance)) +
+  geom_point() +
+  geom_line() +
+  geom_text(aes(label=round(mean_dance,2)), vjust = c(2.5,-2), data = minmax) + # place the minmax data here
+  labs(x="Year",
+       y="Danceability Average per Year",
+       title = "How Average Danceability Has Changed Over The Years",
+       subtitle = "Billboard Top 100 from 1960 - 2016") +
+  theme_classic() +
+  scale_y_continuous(limits = c(0.5,0.8))
+
+# how to add text/labels to the minmax data to give more information about what they mean
+minmax <- minmax |>
+  mutate(label = case_when(mean_dance == min(mean_dance) ~ paste(year, "Lowest Danceability \nin 1950-2016"),
+                           mean_dance == max(mean_dance) ~ paste(year, "Highest Danceability \nin 1950-2016"))
+         )
+minmax |>
+  glimpse()
+
+# use 'geom_label_repel' to create labels on the map to show not only what the numbers mean, but to also point where 
+# the numbers are located
+library(ggrepel)
+dance |>
+  ggplot(aes(x=year, y=mean_dance)) +
+  geom_point() +
+  geom_line() +
+  geom_label_repel(aes(label=label), # place the new label here equal to 'label'
+                   family = 'serif',
+                   color = 'purple',
+                   fontface= 'bold',
+                   size=3,
+                   nudge_y = 0.06,
+                   alpha=0.8,
+                   data = minmax) +
+  labs(x="Year",
+       y="Danceability Average per Year",
+       title = "How Average Danceability Has Changed Over The Years",
+       subtitle = "Billboard Top 100 from 1960 - 2016") +
+  theme_classic() +
+  scale_y_continuous(limits = c(0.5,0.75)) +
+  scale_x_continuous(limits = c(1960,2020))
+  
+# Put the data in its raw form to form box-plots/half-violin plots
+dance <- billboard::spotify_track_data |>
+  mutate(year = as.numeric(year)) |>
+  filter(between(year,1960,2016), danceability <= 1)
+
+dance |>
+  glimpse()
+
+# Create Half-Violin Plots 
+# install.packages("see")
+library(see)
+dance |>
+  filter(between(year,2000,2016)) |> # I chose to limit the graph from 2000-2016 to not overcrowd the graph so the plots are easier to see and to still show some variety
+  ggplot(aes(x=factor(year), y=danceability)) +
+  geom_violinhalf(fill='purple') +
+  geom_boxplot(width = 0.1, fill = 'white') +
+  labs(x="Year",
+       y="Danceability Average per Year",
+       title = "How Average Danceability Has Changed Over The Years",
+       subtitle = "Billboard Top 100 from 1960 - 2016") +
+  theme_classic()
