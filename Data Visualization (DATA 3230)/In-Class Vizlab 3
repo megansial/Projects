@@ -1,0 +1,54 @@
+# install.packages("pokemon", repos = "https://cloud.r-project.org")
+library(pokemon)
+View(pokemon)
+
+library(tidyverse)
+# Summarize data
+# evaluate the association between Pokemon hp (hit points, which are a measure of Pokemon durability) 
+# and their primary attack points value (attack)
+points <- pokemon |>
+  select(id, hp, attack) |>
+  group_by(id) |>
+  summarize(A = sum(attack,na.rm=T),
+                    HP = sum(hp,na.rm=T))
+
+points |>
+  glimpse()
+
+library(ggplot2)
+# install.packages("ggpubr")
+library(ggpubr)
+# Create Scatterplot
+## Add Regression Line & Equation ##
+points |>
+  ggplot(aes(x=HP, y=A)) +
+  geom_point() +
+  geom_smooth(method='lm',se=F) +
+  stat_regline_equation(label.x = 160, label.y = 160) +
+  labs(x = "Hit Points (HP)",
+       y = "Attack Points",
+       title = "Association Between Pokemon Hit Points (HP) and Attack Points") +
+  theme_classic()
+
+## Filter & Use Facet_Wrap (I am using facet_grid) ##
+points <- pokemon |>
+  select(id, type_1, hp, attack) |>
+  filter(type_1 %in% c("fire", "water", "grass", "normal"))
+
+points |>
+  glimpse()
+
+## Create scatterplot with facet_grid #
+points |>
+  ggplot(aes(x = hp, y = attack, color = type_1)) +
+  geom_point() +
+  geom_smooth(method = 'lm',se = F) +
+  facet_grid(~ type_1) +
+  stat_regline_equation(label.y = 205) +
+  labs(x = "Hit Points (HP)",
+       y = "Attack Points",
+       title = "Relationship Between Pokemon HP and Attack by Pokémon Type",
+       subtitle = "Pokemon Whose Primary Type is Fire, Water, Grass, and Normal") +
+  theme_bw() +
+  theme(legend.position = "none") +
+  scale_x_continuous(limits = c(0, 300), breaks = seq(0, 300, 100))
