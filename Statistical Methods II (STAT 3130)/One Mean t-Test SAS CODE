@@ -1,0 +1,330 @@
+/* Deliverable 1 Spring 2026 */
+
+/* Research Question: Do multiple myeloma patients have an average MCHC level that is lower than the normal 
+average of 34 grams per deciliter?
+
+Unit of observation: one Algerian with multiple myeloma
+
+Quantitative Variable: MCHC (Mean Corpuscular Hemoglobin Content)
+*/
+
+/**********************************************************************/
+/************* ONE MEAN T TEST--CODE FOR DELIVERABLE 1  ************/
+/**********************************************************************/
+
+
+/************************************************************************/
+/**********      BEGIN: IMPORT DATA       *********************/
+/************************************************************************/
+/* Generated Code (IMPORT) */
+/* Source File: Multiple myeloma Dataset.xlsx */
+/* Source Path: /home/u64307477/STAT 3130/datasets */
+/* Code generated on: 1/21/26, 5:13 PM */
+
+%web_drop_table(WORK.myeloma);
+
+
+FILENAME REFFILE '/home/u64307477/STAT 3130/datasets/Multiple myeloma Dataset.xlsx';
+
+PROC IMPORT DATAFILE=REFFILE
+	DBMS=XLSX
+	OUT=WORK.myeloma;
+	GETNAMES=YES;
+RUN;
+
+PROC CONTENTS DATA=WORK.myeloma; 
+RUN;
+
+
+%web_open_table(WORK.myeloma);
+
+/************************************************************************/
+/**********      END IMPORT DATA       *********************/
+/************************************************************************/
+
+
+/*******************************************************************/
+/*** BEGINNING: KEEP ONLY THE VARIABLE(S) OF INTEREST  ***/
+/*******************************************************************/
+
+data work.myeloma2;
+set work.myeloma;
+KEEP CBC_MCHC;
+run;
+
+/*We only want to study how Mean Corpuscular Hemoglobin 
+Concentration (MCHC) vary between multiple myeloma patients.*/
+/*******************************************************************/
+/*** END: KEEP ONLY THE VARIABLE(S) OF INTEREST  ***/
+/*******************************************************************/
+
+
+/*******************************************************************/
+/*** BEGINNING: Check how SAS is importing the data  ***/
+/*******************************************************************/
+
+PROC CONTENTS DATA=work.myeloma varnum; 
+RUN;
+
+/*Since CBC_MCHC is being imported as a character, we cannot move forward and use Proc Means because 
+CBC_MCHC needs to be quantitative. This could mean that there are NA, NaN, ?, . " " or even a -1 and 999 
+classified as a character.*/
+/*******************************************************************/
+/*** END: Check how SAS is importing the data  ***/
+/*******************************************************************/
+
+
+/***************************************************************************************/
+/*      BEGIN: CHECK DATA FOR what is making CBC_MCHC a character		*********************/
+/**************************************************************************************/
+
+/* Look for NA, NaN, ?, . " " or even a -1 and 999 that is classifying CBC_MCHC as a character.*/
+PROC FREQ DATA=work.myeloma2;
+Table CBC_MCHC;
+run;
+/* All the way at the bottom of the table, it shows that the data contains a question mark. 
+	This is what is making CBC_MCHC categorical instead of quantitative. */
+
+/* Delete question marks */
+data work.myeloma_clean;
+set work.myeloma2;
+if CBC_MCHC='?' then delete;
+run;
+
+/* Verify that the ?'s are gone. */
+PROC FREQ DATA=work.myeloma_clean;
+Table CBC_MCHC;
+run;
+
+/***************************************************************************************/
+/*      END: CHECK DATA FOR what is making CBC_MCHC a character	  ********************/
+/***************************************************************************************/
+
+
+/*********************************/
+/*   change MCHC to quantitative */
+/*********************************/
+
+/* Before you can look for the -1 and 999 values with Proc Means, CBC_MCHC must be 
+classified as a quantitative variable. */
+
+data work.myeloma_clean;
+set work.myeloma_clean;
+CBC_MCHC_num = CBC_MCHC*1; 
+run; 
+
+/***************************************************************************************/
+/*      BEGIN: CHECK FOR CORRECT CLASSIFICATION OF VARIABLES (QUANTITATIVE/CATEGORICAL) *********************/
+/***************************************************************************************/
+
+PROC CONTENTS DATA=WORK.myeloma_clean;
+RUN;
+
+/* Using PROC CONTENTS, we can verify that we have changed CBC_MCHC into a quantitative variable. */
+/***************************************************************************************/
+/*      END: CHECK FOR CORRECT CLASSIFICATION OF VARIABLES (QUANTITATIVE/CATEGORICAL)      *********************/
+/***************************************************************************************/
+
+
+/***************************************************************************************/
+/*********************** BEGIN: CHECK DATA numeric missing values  ********************/
+/***************************************************************************************/
+
+PROC MEANS data=work.myeloma_clean maxdec=2 n mean stddev median qrange min Q1 Q3 max;
+VAR CBC_MCHC_num;
+run;
+
+/* Since there isn’t a -1 or 999, there aren’t any numeric values showing that there are missing values. */
+/***************************************************************************************/
+/**************** END: CHECK DATA numeric missing values *******************************/
+/***************************************************************************************/
+
+/*******************************************************************/
+/*** BEGINNING: RENAME VARIABLES and DELETE EXTRA VARIABLES ***/
+/*******************************************************************/
+
+/* Put a better label on "CBC_MCHC_num" */
+data work.myeloma_clean;
+set work.myeloma_clean;
+rename CBC_MCHC_num=MCHC ;
+drop CBC_MCHC; /* to remove CBC_MCHC from the variable list, 'drop' should be used instead of 'delete' */
+run;			/* drop is meant to be used to remove a variable from the variable list */
+
+/*Verify name change and that MCHC is the only variable kept in the dataset. */
+PROC CONTENTS DATA=WORK.myeloma_clean; 
+RUN;
+
+/* To make the variable look better and easier to type, the variable “CBC_MCHC” was renamed to “MCHC”. 
+	PROC CONTENTS confirmed the named change. */
+/*******************************************************************/
+/*** END: RENAME VARIABLES and DELETE EXTRA VARIABLES ***/
+/*******************************************************************/
+
+
+/************************************************************************/
+/*********  BEGINNING: BOXPLOT   *************/
+/************************************************************************/
+ods graphics on / height=1.5 in width=6 in outputfmt=static;
+TITLE height=1.5 'Boxplot of Patient MCHC Levels';
+proc sgplot data=work.myeloma_clean;
+hbox MCHC;
+xaxis label='MCHC (g/dL)' labelattrs=(size=12) valueattrs=(size=12);
+run;
+ods graphics off;
+
+/*There are circles for outliers in the graph above, but no asterisks denoting extreme outliers. 
+The mean is a little to the right of the median and the box is a little longer on the left than the right; 
+however, the whiskers appear to be the same length on both sides. This suggests that the data looks skewed right.*/
+/************************************************************************/
+/*********  END: BOXPLOT   *************/
+/************************************************************************/
+
+
+/************************************************************************/
+/*********  BEGINNING: HISTOGRAM   *************/
+/************************************************************************/
+
+ods graphics on / height=2 in width=6 in outputfmt=static;
+TITLE height=1.5'Histogram of Patient MCHC Levels (n = 198)';
+proc sgplot data=work.myeloma_clean;
+    histogram MCHC;
+xaxis label='MCHC (g/dL)' labelattrs=(size=12) valueattrs=(size=12);
+yaxis labelattrs=(size=12) valueattrs=(size=12);
+run;
+ods graphics off;
+
+/* The values on the graph increment by five. The data shows that the histogram is unimodal, 
+	has a single spike or peak, that indicates a frequent value in the data. 
+	This represents the mode, which is often near the median and mean. 
+	It forms a symmetrical bell curve that could indicate a normal distribution. */
+/************************************************************************/
+/*********  END: HISTOGRAM   *************/
+/************************************************************************/
+
+
+/************************************************************************/
+/**********      BEGINNING: GETTING A QQplot        *********************/
+/************************************************************************/
+
+title "Figure 1: QQ Plot";
+proc univariate data=work.myeloma_clean normaltest plots; 
+VAR MCHC;
+run;
+title;
+
+/* Normality Discussion:
+There is random jiggle around the agreement line with normality AND the p-values 
+(.0005, .0100, .0050, .0050) are all greater than .05. Conclusion is that the x-values 
+are normal enough to use a parametric procedure to analyze the center against 34 grams per deciliter. */
+/************************************************************************/
+/**************  END: GETTING QQ PLOTS   ********************************/
+/************************************************************************/
+
+/************************************************************************/
+/*********  BEGINNING: ONE MEAN T TEST   *************/
+/************************************************************************/
+
+/*A One Mean t Test will have the most power to detect if the center is different from 34 grams per deciliter.*/
+
+ods graphics on/ outputfmt=static;
+title1 h=12pt "Is the average MCHC level lower than the";
+title2 h=12pt "normal average of 34 grams per deciliter?";
+Proc ttest data=work.myeloma_clean plots=none sides=L H0=34 alpha=0.05;
+var MCHC; 
+run;
+title;
+ods graphics off;
+
+/* Hypotheses:
+	H_0: μ=34	The true average MCHC level for multiple myeloma patients is 34 gram per deciliter.  
+	H_a: μ<34 	The true average MCHC level for multiple myeloma patients is less than 34 grams per deciliter.
+	
+Significance Level (α = 0.05):
+There is a 5% chance that I will conclude the true MCHC level for multiple myeloma patients is less than 34 grams 
+per deciliter when the true MCHC Level for multiple myeloma patients is 34 gram per deciliter.*/
+/************************************************************************/
+/*********  END: ONE MEAN T TEST   *************/
+/************************************************************************/
+
+
+/************************************************************************/
+/*********  BEGINNING: POST HOC PROCEDURE   *************/
+/************************************************************************/
+ods graphics on/ outputfmt=svg;
+title1 h=10pt "Confidence Interval for the True MCHC Level of Algerian Patients with Myeloma";
+title2 h=9pt "n = 198";
+PROC MEANS Data=work.myeloma_clean n mean median stddev clm alpha=0.05 maxdec=4;
+Var MCHC; 
+run;
+title;
+ods graphics off;
+
+/* We are 95% confident that the true MCHC level for all multiple myeloma patients is between 32.9358 
+	grams per deciliter and 33.4557 grams per deciliter. The hypothesized MCHC level of 34 grams per deciliter 
+	does not lie within this interval which agrees with our conclusion to reject the null hypothesis that the 
+	true mean is equal to 34 grams per deciliter. */
+/************************************************************************/
+/*********  END: POST HOC PROCEDURE   *************/
+/************************************************************************/
+
+
+/************************************************************************/
+/*********  BEGINNING: GRAPHIC TO TELL STORY   *************/
+/************************************************************************/
+ods graphics on/outputfmt=static;
+PROC SGPLOT DATA = work.myeloma_clean;
+  VBOX MCHC/ boxwidth=0.1;
+  refline 14 / axis=y lineattrs=(thickness=3 color=red pattern=dash);
+  yaxis label='MCHC (g/dL)' labelattrs=(size=12) valueattrs=(size=10);
+  TITLE1 "Boxplot of Patient MCHC Levels (n = 198)";
+RUN;
+ods graphics off;
+
+/* I can't figure out why my line attributes aren't working. */
+
+/* 75% of the multiple myeloma patients MCHC level is less than 34.0000 grams per 
+	deciliter. This agrees with our conclusion that the MCHC level for multiple myeloma patients 
+	is below the normal average of 34 grams per deciliter. */
+/************************************************************************/
+/*********  END: GRAPHIC TO TELL STORY   *************/
+/************************************************************************/
+
+
+/************************************************************************/
+/*********  EXTRA REQUIREMENTS: DESCRIPTIVE STATISTICS TABLES   *********/
+/************************************************************************/
+
+ods graphics on/ outputfmt=svg;
+title h=10pt "Descriptive Statistics of MCHC";
+PROC MEANS Data=work.myeloma_clean n mean stddev stderr median Qrange q1 q3 clm alpha=0.05 maxdec=4;
+Var MCHC; run;
+title;
+ods graphics off;
+
+/* 
+Margin of Error: We are 95% confident that our estimate of 33.1958 grams per deciliter  is 
+					within .260 grams per deciliter of the true average MCHC level 
+					of patients with multiple myeloma. 
+					(33.4557 - 32.9358) / 2 = .520 / 2 = .260
+
+Mean:	The average MCHC level for multiple myeloma patients is 33.1958 grams per deciliter.
+
+Standard Deviation:	One multiple myeloma patient will be off an average of 1.8547 grams per 
+						deciliter from the sample mean of 33.1958 grams per deciliter.
+
+Standard Error:	One sample average of 198 multiple myeloma patients will be off .1318 grams per 
+				deciliter from the sample mean of 33.1958.
+
+Median:	50% of the patients with multiple myeloma have a MCHC level less than 33.1000 grams per deciliter
+
+Interquartile Range:	The middle 50% of the MCHC level for multiple myeloma patients lie between 
+						32.0000 grams per deciliter and 34.0000 grams per deciliter for a spread of 2.0000.
+
+Q1:	25% of the multiple myeloma patients MCHC level is less than 32.0000 grams per deciliter.
+
+Q3:	75% of the multiple myeloma patients MCHC level is less than 34.0000 grams per deciliter. 
+*/
+
+/************************************************************************/
+/*********  EXTRA: DESCRIPTIVE STATISTICS TABLES   *************/
+/************************************************************************/
