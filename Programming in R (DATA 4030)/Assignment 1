@@ -1,0 +1,106 @@
+############################################################
+# DATA 4030 – Assignment 1
+
+# What to submit: Add R code after each question and submit this completed .R file
+############################################################
+
+# -------------------------------
+# 0) Packages & data
+# -------------------------------
+library(tidyverse)  # includes dplyr + ggplot2
+data(storms)        # comes with dplyr
+
+glimpse(storms)
+View(storms)
+
+# ============================================================
+# Part A — Create a clean storms dataset
+# ============================================================
+# Create storms_clean that:
+# 1) Keeps only storms from year 2000 and later
+# 2) Removes rows with missing wind or pressure (if any)
+# 3) Creates a new variable wind_mph = wind * 1.15078
+# 4) Keeps only these columns (in this order):
+#    name, year, month, day, hour, status, category, wind, wind_mph, pressure
+#5) use dplyr::select, when you need to use select
+# strat with storms_clean <- storms |> ...
+
+storms_clean <- storms |>
+  filter(year >= 2000, !is.na(wind), !is.na(pressure)) |>
+  mutate(wind_mph = wind * 1.15078) |>
+  dplyr::select(name, year, month, day, hour, status, category, wind, wind_mph, pressure)
+
+storms_clean
+
+# ============================================================
+# Part B — Summary table by category
+# ============================================================
+# Create storms_by_category that:
+# 1) Filters to ONLY rows where category is not missing
+# 2) Groups by category
+# 3) Computes:
+#    - n (number of records)
+#    - avg_wind_mph
+#    - median_pressure
+# 4) Keeps only categories with n >= 200
+# 5) Sorts by avg_wind_mph (highest first)
+#
+# start with storms_by_category <- storms_clean |>
+#   ...
+
+storms_by_category <- storms_clean |>
+  filter(!is.na(category)) |>
+  group_by(category) |>
+  summarize(
+    n = n(),
+    avg_wind_mph = mean(wind_mph),
+    median_pressure = median(pressure)
+  ) |>
+  filter(n >= 200) |>
+arrange(desc(avg_wind_mph))
+
+storms_by_category
+
+# ============================================================
+# Part C — Plot 1: bar chart of category counts 
+# ============================================================
+# Make a bar chart that shows the COUNT of records by category
+# using storms_clean (only non-missing categories).
+#
+# Requirements:
+# - x = category (ordered by frequency)
+# - Use geom_bar()
+# - Add theme_minimal()
+# - Add labs(title, x, y)
+#
+# p_bar <- ggplot(...) + ...
+
+p_bar <- ggplot(storms_clean |>
+                  filter(!is.na(category)), 
+                aes(x = category)) +
+  geom_bar() +
+  theme_minimal() +
+  labs(title = "Bar Chart of Storm Category Counts",
+       x = "Categories",
+       y = "Records")
+
+p_bar
+
+# ============================================================
+# Part D — Plot 2: scatterplot 
+# ============================================================
+# Create a scatterplot using storms_clean:
+# - x = pressure
+# - y = wind_mph
+# - color = status
+# - Add points with some transparency (alpha)
+# - Add a smooth trend line (lm)
+#
+# p_scatter <- ggplot(...) + ...
+
+p_scatter <- ggplot(storms_clean, aes(x = pressure, y = wind_mph, color = status)) +
+  geom_point(alpha = 0.5) +
+  geom_smooth(method = "lm")
+
+p_scatter
+############################################################
