@@ -1,0 +1,54 @@
+# Lab 3 - Communicating Association
+
+library(ggplot2)
+library(dplyr)
+library(tidyr)
+
+#  the ggplot2::txhousing dataframe,
+View(txhousing)
+
+# Filter txhousing data between sales (y-axis) and listings (x-axis) beginning in 2010
+# and going through 2015
+tx_subset <- txhousing |>
+  filter(year >= 2010 & year <= 2015)
+
+# Scatterplot 
+tx_subset |>
+ggplot(aes(x = listings, y = sales)) +
+  geom_point(alpha = 0.6, 
+             color = "indianred3") + 
+  geom_smooth(method = "lm", 
+              se = FALSE, 
+              color = "olivedrab", 
+              size = 1) +
+  facet_wrap(~year) +
+  labs(title = "Relationship Between Home Listings and Sales (2010–2015)",
+    x = "Number of Listings",
+    y = "Number of Sales") +
+  theme_linedraw() +
+  theme(plot.title = element_text(face = "bold"), 
+        strip.text = element_text(face = "bold"))
+
+# the tidyr::us_rent_income dataframe
+View(us_rent_income)
+
+#  Filter txhousing data between income (y-axis) and rent (x-axis).
+rent_income_wide <- us_rent_income |>
+  select(NAME, variable, estimate) |>
+  pivot_wider(names_from = variable, 
+              values_from = estimate)
+
+# Scatterplot
+rent_income_wide |>
+ggplot(aes(x = rent, y = income)) +
+  geom_point(alpha = 0.7, 
+             color = "darkorchid") +
+  geom_smooth(method = "lm", 
+              se = FALSE, 
+              color = "hotpink", 
+              size = 1) +
+  labs(title = "Relationship Between Median Rent and Median Income in the U.S.",
+    x = "Average Rent",
+    y = "Average Household Income") +
+  theme_linedraw() +
+  theme(plot.title = element_text(face = "bold"))
