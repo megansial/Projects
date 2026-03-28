@@ -1,0 +1,388 @@
+/* Deliverable 2 Spring 26 */
+/*
+RESEARCH QUESTION: Do you notice anything that may cause the changes based on my teaching methods 
+or was this random fluctuation? In particular is there anything to explain the high variability in Fall 23?
+Are the Fall 2023 CTCP scores significantly different than the median for Spring 2025, which is (49)? 
+
+Unit of observation: Students
+
+Quantitative Variable: Test Score
+
+Choice of Tests: Quantitative against a known value so either 
+	o	One Mean t Test (if normal)
+	o	Sign Test (not normal)
+*/
+
+/************************************************************************/
+/**********      BEGIN: IMPORT UNCLEAN DATA       *********************/
+/************************************************************************
+
+/* Generated Code (IMPORT) */
+/* Source File: Choose the Correct Procedure Test Scores.xlsx */
+/* Source Path: /home/u64307477/STAT 3130/datasets */
+/* Code generated on: 2/9/26, 2:54 PM */
+
+%web_drop_table(WORK.NotTidy);
+
+
+FILENAME REFFILE '/home/u64307477/STAT 3130/datasets/Choose the Correct Procedure Test Scores.xlsx';
+
+PROC IMPORT DATAFILE=REFFILE
+	DBMS=XLSX
+	OUT=WORK.NotTidy;
+	GETNAMES=YES;
+RUN;
+
+PROC CONTENTS DATA=WORK.NotTidy; RUN;
+
+
+%web_open_table(WORK.NotTidy);
+
+/************************************************************************/
+/**********      END: IMPORT NOT TIDY DATA       *********************/
+/************************************************************************/
+
+
+/************************************************************************/
+/**********      BEGIN: IMPORT TIDY DATA       *********************/
+/************************************************************************/
+
+/* Generated Code (IMPORT) */
+/* Source File: SIERRA - TIDY DATA - Choose the Correct Procedure (CTCP) tests.xlsx */
+/* Source Path: /home/u64307477/STAT 3130/datasets */
+/* Code generated on: 2/4/26, 7:41 PM */
+
+%web_drop_table(WORK.CTCP_Tidy);
+
+
+FILENAME REFFILE '/home/u64307477/STAT 3130/datasets/SIERRA - TIDY DATA - Choose the Correct Procedure (CTCP) tests.xlsx';
+
+PROC IMPORT DATAFILE=REFFILE
+	DBMS=XLSX
+	OUT=WORK.CTCP_Tidy;
+	GETNAMES=YES;
+RUN;
+
+PROC CONTENTS DATA=WORK.CTCP_Tidy; RUN;
+
+
+%web_open_table(WORK.CTCP_Tidy);
+
+/************************************************************************/
+/**********      END: IMPORT TIDY DATA       *********************/
+/************************************************************************/
+
+
+
+/************************************************************************/
+/******      BEGIN: ARE THE VARIABLES CHARACTER or NUMERIC?       ******/
+/**********************************************************************/
+
+/* Verify that the variables are numerical (UNCLEAN DATA) */
+proc contents data=work.nottidy;
+run;
+
+/* Verify that the variables are numerical (TIDY DATA) */
+proc contents data=work.CTCP_Tidy;
+run;
+
+/* Rename variable to a name better for tables. */
+data work.CTCP_Tidy;
+	set work.ctcp_tidy;
+	rename "Test Score"n = Score;
+	rename "Semester"n = Semester;
+run;
+
+/************************************************************************/
+/******      END: ARE THE VARIABLES CHARACTER or NUMERIC?      *********/
+/**********************************************************************/
+
+
+/************************************************************************/
+/******      BEGIN: CHECK FOR NUMERIC MISSING VALUES, TYPOS, OR OUTLIERS       ******/
+/**********************************************************************/
+
+/* NOT TIDY DATA */
+proc means data=work.nottidy;
+run;
+
+/* TIDY DATA */
+proc means data=work.ctcp_tidy;
+run;
+/* In the tidy data for the "Test Score" variable, there is an unusual maximum of 550. 
+	The max should be 50, because that is the max score you can receive on the test.*/
+
+/* CHECK FOR DIFFERENT CODING OF MISSING VALUES */
+PROC FREQ data = work.ctcp_tidy;
+Tables Score;
+run;
+/* There are multiple values in the data that are greater than 50 that should not be there. */
+
+/* CHECK FOR OUTLIERS.*/
+TITLE height=1.5 'Box Plot for CTCP Test Score for students (n = 144)';
+proc sgplot data=work.ctcp_tidy;
+hbox Score;
+xaxis label="CTCP Test Scores" labelattrs=(size=12) valueattrs=(size=12);
+run;
+/* The outliers are so powerful it pushes the box plot to the left and they must be removed.
+	These outliers make the data not normal and we will have to use a nonparametric test */
+	
+/* CHECK FOR SPIKES */
+ods graphics on / height=2 in width=6 in outputfmt=static;
+title height=1.5 "Histogram of CTCP Test Score for Students (n = 144)";
+proc sgplot data=work.CTCP_Tidy;
+	histogram Score;
+xaxis label="CTCP Test Scores" labelattrs=(size=12) valueattrs=(size=12);
+yaxis label="Count" labelattrs=(size=12) valueattrs=(size=12);
+run;
+ods graphics off;
+
+
+
+/************************************************************************/
+/******      END: CHECK FOR NUMERIC MISSING VALUES/TYPOS       ******/
+/**********************************************************************/
+
+
+
+/************************************************************************/
+/************      BEGIN: DELETE MISSING VALUE/TYPOS       ************/
+/**********************************************************************/
+
+/* UNCLEAN DATA */
+DATA NotTidy_Clean2;
+	set work.nottidy;
+	if "Test Score F22" > 50 then delete;
+	if "Test Score Sp23" > 50 then delete;
+	if "Test Score F23" > 50 then delete;
+	if "Test Score Sp24" > 50 then delete;
+	if "Test Score F24" > 50 then delete;
+	if "Test Score Sp25" > 50 then delete;
+	if "Test Score Fall 25" > 50 then delete;
+run;
+/* DO NOT RUN THIS CODE! it will delete the whole row cotaining the deleted value, not just that cell. 
+	Instead, we were instructed to manually delete all the values greater than 50 in excel. */
+
+
+/* Tidy Data */
+/* Set the cut off number to 50 and delete the values that don't fit the criteria. */
+DATA CTCP_Tidy_Clean;
+	set work.CTCP_Tidy;
+	if Score > 50 then delete;
+run;
+
+/* confirm that there are not values greater than 50 when using PROC FREQ to look at the frequency tables */
+proc freq data=work.ctcp_tidy_clean;
+run;
+
+/* Verify if the data was cleaned */
+proc means data=work.ctcp_tidy_clean;
+run;
+/* It worked! the max is now 50 and there aren't any other unusual or missing values. */
+
+/************************************************************************/
+/************      END: DELETE MISSING VALUE/TYPOS       ************/
+/**********************************************************************/
+
+
+
+/************************************************************************/
+/*******************      BEGIN: PROC FORMAT       *********************/
+/**********************************************************************/
+
+/* Format the values as a key so the dataset can recognize what the values mean. */
+proc format;
+	value SemesterFormat
+	1 = "Fall 2022"
+	2 = "Spring 2023"
+	3 = "Fall 2023"
+	4 = "Spring 2024"
+	5 = "Fall 2024"
+	6 = "Spring 2025"
+	7 = "Fall 2025"
+	;
+run;
+
+/* Creates a new dataset that showcases the Test Scores with the name of the Semester. */
+data work.clean_tidy_formatted;
+set work.ctcp_tidy_clean;
+format Semester SemesterFormat.;
+run;
+
+/* Check the variable type */
+proc contents data=work.clean_tidy_formatted varnum;
+run;
+/* Everything looks good! Both Test Score and Semester are numeric like they should be. */
+
+/* Verifies in a table the number have been formatted */
+proc freq data=work.clean_tidy_formatted;
+run;
+
+/************************************************************************/
+/**********      END: PROC FORMAT       *********************/
+/************************************************************************/
+
+
+
+/************************************************************************/
+/**********      BEGINNING: PROC MEANS   *********************/
+/************************************************************************/
+
+/* Five Number Summary (NOT Tidy Data) */
+PROC MEANS data=work.nottidy maxdec=2 n Min Q1 Median Q3 Max;
+	VAR "Test Score F22"n "Test Score Sp23"n "Test Score F23"n "Test Score Sp24"n "Test Score F24"n "Test Score Sp25"n "Test Score Fall25"n;
+RUN;
+/* This was pretty messy to do because I needed to call out every column from the Not Tidy dataset. */
+
+/* Five Number Summary for Fall 2023 */
+PROC MEANS data=work.nottidy maxdec=2 n Min Q1 Median Q3 Max;
+	VAR "Test Score F23"n;
+RUN;
+
+/* Five Number Summary (Tidy Data) */
+ods graphics on / outputfmt=static;
+PROC MEANS data=work.clean_tidy_formatted maxdec=2 n Min Q1 Median Q3 Max;
+	CLASS Semester;
+	VAR Score;
+RUN;
+/* This was extremely easy to do as everything fall under two columns, one just consisting of just 
+numerical values and the other just quantitative. */
+
+/************************************************************************/
+/**********      END: PROC MEANS       *********************/
+/************************************************************************/
+
+/**************************************************************************/
+/****************      BEGINNING: PROC UNIVARIATE   **********************/
+/************************************************************************/
+
+/* Not Tidy Data */
+ods graphics on/ height=8in width=6in outputfmt=static;
+PROC UNIVARIATE data=work.nottidy normaltest plots;
+VAR "Test Score F22"n "Test Score Sp23"n "Test Score F23"n "Test Score Sp24"n "Test Score F24"n "Test Score Sp25"n "Test Score Fall25"n;
+title 'Univariate descriptives to check residuals assumptions';
+RUN;
+title;
+ods graphics off;
+/* This was pretty messy to do because I needed to call out every column from the Not Tidy dataset. */
+
+ods graphics on/ height=6in width=6in outputfmt=static;
+PROC UNIVARIATE data=work.nottidy normaltest plots;
+VAR "Test Score F23"n;
+title 'Univariate descriptives to check residuals assumptions';
+RUN;
+title;
+ods graphics off;
+ods graphics on/ height=10in width=6in outputfmt=static;
+PROC UNIVARIATE data=work.nottidy normaltest plots;
+VAR "Test Score F23"n;
+title 'Univariate descriptives to check residuals assumptions';
+RUN;
+title;
+ods graphics off;
+
+/* Tidy Data */
+ods graphics on/ height=6in width=6in outputfmt=static;
+PROC UNIVARIATE data=work.clean_tidy_formatted normaltest plots;
+CLASS Semester;
+VAR Score;
+title 'Univariate descriptives to check residuals assumptions';
+RUN;
+title;
+ods graphics off;
+/* This was extremely easy to do as everything fall under two columns, one just consisting of just 
+numerical values and the other just quantitative. */
+
+/************************************************************************/
+/**********      END: PROC UNIVARIATE       *********************/
+/************************************************************************/
+
+
+/**********************************************************************************/
+/*** BEGINNING: VERTICAL PANELED HISTOGRAMS (TIDY DATA)  ********************/
+/**********************************************************************************/
+
+title "Stratified Histogram of CTCP Test Scores by Seven Semesters";
+proc sgpanel data=work.clean_tidy_formatted ;
+  panelby Semester / novarname rows=7 columns=1;
+  histogram Score /datalabel=proportion  scale = proportion binwidth=3 ;
+  colaxis label="CTCP Test Score" grid;
+  rowaxis grid;
+run;
+
+/**********************************************************************************/
+/***END: VERTICAL PANELED HISTOGRAMS (TIDY DATA)  ********************/
+/**********************************************************************************/
+
+
+/************************************************************************/
+/**********      BEGINNING: CREATE LATTICED BOXPLOT (TIDY DATA)   *********************/
+/************************************************************************/
+
+TITLE 'Stratified Box Plot for CTCP Test Scores by Semester';
+PROC SGPANEL DATA=work.clean_tidy_formatted;
+PANELBY Semester / novarname rows=1 columns=7;
+VBOX Score;
+rowaxis grid values= (25 to 50 by 5);
+RUN;
+
+/************************************************************************/
+/**********     END: CREATE LATTICED BOXPLOT (TIDY DATA)   *********************/
+/************************************************************************/
+
+
+
+/**************************************************************************************************/
+/*   BEGINNING: NONPARAMETRIC TEST OF LOCATION AND THE POST HOC CONFIDENCE INTERVAL ON THE MEDIAN */
+/**************************************************************************************************/
+
+/* THE SIGN TEST  */
+proc Univariate data=work.ctcp_tidy_clean
+	mu0=49
+	loccount
+	cipctldf
+	alpha=.05;
+	where Semester = 3;
+	var Score;
+Run;
+
+/********************************************************************************************/
+/*   END: NONPARAMETRIC TEST OF LOCATION AND THE POST HOC CONFIDENCE INTERVAL ON THE MEDIAN */
+/********************************************************************************************/
+
+
+
+/************************************************************************/
+/*********  BEGINNING: HISTOGRAM   *************/
+/************************************************************************/
+
+/********* Data for Fall 2023 *********/
+
+/*Proc Means to tell the binwidth and binstart.*/
+Proc means data=work.ctcp_tidy_clean MAXDEC=2 n mean stddev median Qrange RANGE min Q1 Q3 max LCLM UCLM skew;
+	var Score;
+	where Semester = 3;
+run;
+/* Min=29.00 Max=48.00 
+binstart 29.00 binwidth to make about 11 intervals. */
+
+ods graphics on / outputfmt=static;
+TITLE1 height=1.5 "Histogram of CTCP Test Scores for Fall 2023 (n = 26)";
+Proc SGPLOT data=work.clean_tidy_formatted;
+histogram Score / 
+	datalabel=proportion datalabelattrs=(size=10 pt)
+	scale=proportion showbins 
+	binwidth=1.5 binstart=29.00
+	fillattrs=(color=H000BB00) 
+	boundary=upper; 
+	where Semester = 3;
+	refline 49.0 / axis=x lineattrs=(thickness=3 color=darkred pattern=dash);
+	xaxis label='CTCP Test Score' labelattrs=(size=12) valueattrs=(size=12);
+	yaxis label='Proportion of CTCP Test Scores' labelattrs=(size=12) valueattrs=(size=12);
+run;
+TITLE;
+ods graphics off;
+
+/************************************************************************/
+/*********  END: HISTOGRAM   *************/
+/************************************************************************/
