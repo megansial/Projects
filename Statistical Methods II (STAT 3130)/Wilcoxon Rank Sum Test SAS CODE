@@ -1,0 +1,399 @@
+/************* WILCOXON RANK SUM /AKA/ MANN WHITNEY U FROM THE NOTES  ************************/
+/* ONE Categorical with 2 Levels predicting ONE Quantitative Value */
+/****************************************************************************************/
+
+/* Deliverable 3 Spring 26 */
+/*
+TOPIC: Bike-sharing rental process is highly correlated to the environmental and seasonal settings. For
+		instance, weather conditions, precipitation, day of week, season, hour of the day, etc. can affect the
+		rental behaviors. 
+		The core data set is related to the two-year historical log corresponding to years 2011
+		and 2012 from Capital Bikeshare system, Washington D.C., USA
+
+RESEARCH QUESTION: Is there a difference in the amount of daily count of casual 
+					bike rentals on HOLIDAYS versus days that are NOT HOLIDAYS?
+
+Unit of observation: 
+
+Quantitative Variable: 
+
+Choice of Tests: ONE Categorical with 2 Levels predicting ONE Quantitative Value
+	o	Two Mean t Test with POOLED VARIANCES 	(Normal, Homogeneous)
+	o	Two Mean t Test with POOLED VARIANCES 	(Normal, Not Homogeneous)
+	o	WILCOXON RANK SUM TEST aka Mann Whitney U Test 	(Not Normal, Homogeneous)
+	o	WELCH TEST ON RANKED DATA 	(Not Normal, Not Homogeneous)
+*/
+
+/************************************************************************/
+/**********      BEGIN: IMPORT DATA       *********************/
+/************************************************************************/
+
+/* Generated Code (IMPORT) */
+/* Source File: bike.xlsx */
+/* Source Path: /home/u64307477/STAT 3130/datasets */
+/* Code generated on: 2/17/26, 6:44 PM */
+
+%web_drop_table(WORK.BIKE);
+
+
+FILENAME REFFILE '/home/u64307477/STAT 3130/datasets/bike.xlsx';
+
+PROC IMPORT DATAFILE=REFFILE
+	DBMS=XLSX
+	OUT=WORK.BIKE;
+	GETNAMES=YES;
+RUN;
+
+PROC CONTENTS DATA=WORK.BIKE; RUN;
+
+
+%web_open_table(WORK.BIKE);
+
+/************************************************************************/
+/**********      END: IMPORT DATA       *********************/
+/************************************************************************/
+
+/************************************************************************/
+/* BEGIN: CHECK THE VARIABLE TYPE USING THE IMPORT CODE *************************/
+/************************************************************************/
+PROC CONTENTS DATA=work.bike varnum; 
+RUN;
+/************************************************************************/
+/* END: CHECK THE VARIABLE TYPE USING THE IMPORT CODE *************************/
+/************************************************************************/
+
+
+
+
+/****************************************************************************/
+/******************* BEGINNING: DATA CLEANING *******************************/
+/****************************************************************************/
+
+/****************************************************************************/
+/*******BEGINNING: KEEP VARIABLES OF INTEREST AND RENAME LEVELS *************/
+/****************************************************************************/
+
+/* Keep only the variables you want to look at (which are holiday and casual). */
+data work.bike;
+set work.bike (keep = holiday casual);
+run;
+/*We want to create code that only keeps the two variables, “holiday” and “casual”,
+ that we want to observe from our bike dataset. */
+
+proc contents data=work.bike;
+run;
+/*Run PROC CONTENTS to verify that we have successfully kept only the two variables, 
+	“holiday” and “casual”. 
+Since both variables, “holiday” and “casual”, in the bike dataset, is numeric, 
+	we do not have missing values of NA, Nan,…?.
+We need to look for -1 and 999, periods and blanks.
+*/
+
+/* Assign labels to the 0 and 1 in the holiday column to clearly see which number is a "Holiday" and "Not a Holiday". */
+proc format;
+value holidayFORMAT
+0 = "Not a Holiday"
+1 = "Holiday";
+run;
+/*We change the values, or rename the levels, of 0 and 1 in the holiday column. 0 is renamed to “Not a Holiday”, and 1 is 
+	renamed to “Holiday”. This makes the holiday column significantly easier to understand.*/
+
+/* rename the variables so that they are easier to use especially for PROC SGPANEL */
+data work.bike;
+set work.bike;
+label holiday = "Holiday Status";
+rename holiday = "Holiday Status"n;
+label casual = "Casual Rentals";
+rename casual = "Casual Rentals"n;
+run;
+/*Both variables have been renamed to “Holiday” and “Casual”. 
+This change can be verified in the Label column in PROC CONTENTS.*/
+proc contents data = work.bike;
+run;
+
+/* Attach The Labels and Variables Format to The Bike Dataset. */
+data work.bike;
+set work.bike;
+format "Holiday Status"n holidayFORMAT.;
+run;
+
+proc contents data=work.bike;
+run;
+/****************************************************************************/
+/*******END: KEEP VARIABLES OF INTEREST AND RENAME LEVELS *************/
+/****************************************************************************/
+
+/*******************************************************************/
+/******  EXAMINE THE DATA FOR MISSING VALUES, TYPOS AND OUTLIERS ***/
+/*******************************************************************/ 
+
+/*          FIRST EXAMINE THE QUANTITATIVE VARIABLE.         */
+
+/* CHECK FOR UNUSUAL VALUES. */
+ods graphics on / outputfmt=static;
+proc means data=work.bike n min std q1 mean q3 max maxdec = 2;
+	class "Holiday Status"n;
+	var "Casual Rentals"n;
+run;
+ods graphics off;
+/* No repeats of values for 25% of the data. 
+No unusual minimum (-1) or maximum (999). 
+No message from SAS that there are missing values tailed at the bottom of the table.
+*/
+
+
+/* CHECK FOR OUTLIERS. */
+ods graphics on / height=1.5 in width=5 in outputfmt=static;
+TITLE height=1.5 'Box Plot for Casual Bike Rentals on HOLIDAYS vs. NOT HOLIDAYS (n = 731)';
+proc sgplot data=work.bike;
+hbox 'Casual Rentals'n / group='Holiday Status'n;
+xaxis label='Casual Rentals Per Day' labelattrs=(size=12) valueattrs=(size=12);
+run;
+title;
+ods graphics off;
+/* For the blue box plot, there are outliers to the right of the box, but There are not 
+any unusual values in the data points, indicating no missing values. 
+The mean is to the right of the median, and the box plot appears to be longer on the left, 
+indicating that the data points are consistent. The whisker to the right is much longer 
+than the left, indicating that there is a heavy tail to the right. 
+This suggests that the data for casual bike rentals for “Not a Holiday” is skewed right.
+
+The red box plot shows no outliers or any unusual values in the data points, that indicate
+ no missing values. The median is to the right of the median, and the box appears to be longer
+ to the right, indicating that the data is more spread out and potentially less consistent. 
+ It also has a long whisker to the right, indicating a heavy tail to the right. 
+ This suggests that the data for casual bike rentals for “Holiday” is skewed right.*/
+
+
+/* CHECK FOR SPIKES */
+ods graphics on / height=2 in width=6 in outputfmt=static;
+title height = 1.5 "Stratified Histogram of Casual Bike Rentals on HOLIDAYS vs. NOT HOLIDAYS (n = 731)";
+proc sgpanel data = work.bike ;
+  panelby "Holiday Status"n / columns=2 spacing=10;
+  histogram "Casual Rentals"n;
+  rowaxis labelattrs=(size=12) valueattrs=(size=12);
+  colaxis label = 'Casual Rentals Per Day' labelattrs=(size=12) valueattrs=(size=12);
+run;
+title;
+ods graphics off; 
+/* The histogram for “Not a Holiday” shows a cluster roughly around 0 to 1,000, and rentals 
+after that range are shown to be much rarer, tapering off quickly. 
+
+The histogram for “Holiday” has greater variability in casual bike rentals. In this distribution, 
+there are a lot of noticeable spikes, but none that are in an unusual spot that indicates any missing values. 
+Compared to the distribution for “Not a Holiday”, where there aren’t a lot of spikes for casual bike rentals, across the spread.
+
+Both distributions show that they are right skewed, with a long tail. */
+
+/*          SECOND, EXAMINE THE CATEGORICAL VARIABLE.         */
+
+/* We did not need to use PROC FREQ to look for categorical missing values 
+in the quantitative variable because the variable came in as numeric, not 
+character (categorical). However, we do need to use proc freq to check the 
+categorical variable of method for any missing values. */
+
+ods graphics on / outputfmt=static;
+PROC FREQ data = work.bike;
+	Tables 'Holiday Status'n;
+run;
+ods graphics off;
+/* No cleaning is needed. There are no indicators of missing values 
+listed (like ".", "na", "NA",) or counted by SAS at the bottom of the table. */
+
+/*******************************************************************/
+/** END: EXAMINE THE DATA FOR MISSING VALUES, TYPOS AND OUTLIERS ***/
+/*******************************************************************/ 
+
+/****************************************************************************/
+/************************* END: DATA CLEANING *******************************/
+/****************************************************************************/
+
+
+
+
+
+/************************************************************************/
+/* CHOOSE THE CORRECT PROCEDURE TO ANALYZE THE DATA. */
+/************************************************************************/
+
+/********************************************************************************************/
+/**********      BEGINNING: GETTING A QQplot and Normality Tests        *********************/
+/********************************************************************************************/
+
+/* CHECK FOR NORMALITY OF THE QUANTITATIVE VARIABLE */
+ods graphics on / height=8 in width=6 in  outputfmt=static; /* I changed the height to 8 and width to 6 to make the QQ Plot*/
+title "Figure 1: QQ Plots";
+proc univariate data=work.bike normaltest plots; 
+class "Holiday Status"n;
+var "Casual Rentals"n;
+run;
+title;
+ods graphics off;
+/* Not a Holiday:
+		The QQ Plot of Casual Bike Rentals for Not a Holiday shows that in the middle of the graph, 
+		the points follow the normality agreement line relatively closely. 
+		However, beyond z = -1 and z = 1.25 of the QQ Plot, the Casual Bike Rentals are above the 
+		normality agreement line, indicating that the x-values are higher than what Casual Bike Rental 
+		should be for a normal distribution.
+		
+		The four tests of normality have p-values less than the significance level (α=0.05), demonstrating 
+		that we reject the null hypothesis and also conclude that the distribution is not normal.
+		
+		Since the sample for days that are Not Holidays is 710 days (n = 710), we can use the Central Limit Theorem
+		to say that the sample average of Casual Bike Rentals for 710 days follows a normal distribution.
+ 
+		
+  Holiday:
+  		There are three tests of normality that have a p-value less than the significance level (α=0.05), 
+  		the Shapiro-Wilk Test, the Cramer-von Mises Test, and the Anderson-Darling Test. 
+  		All three normality tests indicate that we reject the null hypothesis and suggest that the distribution 
+  		is not normal. Even though the p-value for the Kolmogorov-Smirnov Test is greater than 0.05, three out 
+  		of the four normality tests suggest non-normality and strongly points towards the data being not normal.
+  		
+  		The QQ Plot of Casual Bike Rentals for Holiday shows that in the middle of the graph, the points follow 
+  		the normality agreement line relatively closely. However, beyond z = -0.9 and z = 1 of the QQ Plot, 
+  		the Casual Bike Rentals are above the normality agreement line, indicating that the x-values are higher 
+  		than what Casual Bike Rental should be for a normal distribution.
+  		
+  		Since the sample for days that are Holidays is 21 days (n = 21), we CANNOT use the Central Limit Theorem 
+  		to say that the sample average of Casual Bike Rentals for 21 days follows a normal distribution.
+*/
+
+/************************************************************************/
+/**********      END: GETTING A QQplot        *********************/
+/************************************************************************/
+
+
+/********************************************************************************************/
+/**********      END: GETTING A QQplot and Normality Tests        *********************/
+/********************************************************************************************/
+
+/************************************************************************/
+/**********      BEGINNING: Check Homogeneity        *********************/
+/************************************************************************/
+ods graphics on / outputfmt=static;
+Proc Means data = work.bike MAXDEC=2 n mean stddev  min Q1 median Q3 max;
+	class 'Holiday Status'n;  /*Categorical variable*/
+	var 'Casual Rentals'n; /*Quantitative variable*/
+run;
+ods graphics off;
+/* Since the test statistic of 1.2638 casual rentals is less than two, we conclude the variances 
+	for Holiday and Non-Holiday are equal enough. 
+	
+	The test that is appropriate to assess the distributions of two observations obtained between 
+	two separate groups is the Wilcoxon Rank Sum Test.*/
+
+/************************************************************************/
+/**********      END: Check Homogeneity        *********************/
+/************************************************************************/
+
+/***************************************************************************************************/
+/**********     CHOOSE THE HYPOTHESIS TEST: WILCOXON RANK SUM (A.K.A. MANN-WHITNEY U)  *************/
+/***************************************************************************************************/
+
+
+/************************************************************************/
+/**********      BEGINNING: HYPOTHESIS TEST        *********************/
+/************************************************************************/
+/* YOU CAN ONLY USE THE EXACT WILCOXON ON SMALL SAMPLE SIZES. See notes at the end of this section. */
+/* I WANT YOU TO USE THE CONTINUITY CORRECTION FACTOR SO USE CORRECT=YES */
+
+ods graphics on / outputfmt=static;
+PROC NPAR1WAY DATA = work.bike WILCOXON CORRECT=YES;
+  CLASS 'Holiday Status'n;
+  VAR 'Casual Rentals'n;
+RUN;
+ods graphics off;
+/* Wilcoxon Statistic: 	
+	S = 8740.5. The sum of the ranks of the casual bike rentals for “Holiday” are 8740.5 rentals.
+
+z-value: 			
+	Z = 1.052. The Wilcoxon test statistic is 1.052 standard deviations to the right of the 
+	hypothesized sum of ranks of 7686 rentals.
+	
+p-value: 			
+	p-value = 0.2691. There is a 27% chance of observing a sum of ranks for the 
+	smallest sample (Holiday) of 8740.5 or less or 6631.5 or more. 
+	This is consistent with what would be expected under the assumption of no difference in medians.
+
+Conclusion: 		
+	Since our p-value (0.2691) is greater than our significance level (0.05), 
+	we are 95% confident that we cannot reject the null hypothesis and 
+	cannot say that the median Casual Bike Rentals for Holiday and Not a Holiday are different.
+ */
+
+/************************************************************************/
+/**********      END: HYPOTHESIS TEST        *********************/
+/************************************************************************/
+
+/************************************************************************/
+/**********      NO POST HOC        *********************/
+
+/* Compute the best that we have post hoc. 
+There is no post hoc procedure for Wilcoxon Rank Sum Test. 
+
+It would be a confidence interval on the difference ot the two medians.  
+
+As a "best that we have for a post hoc," divide the data into two datasets: 
+one for holidays and one for not holidays.
+ 
+Use the confidence interval on median using the sign test post hoc 
+"confidence interval on percentile distribution free 
+(cipctdf)" to see if the confidence intervals overlap. */
+
+Proc Univariate data=WORK.bike cipctldf alpha=.05;
+  CLASS 'Holiday Status'n;
+  VAR 'Casual Rentals'n;
+Run;
+/* Since 50% of the population of Casual Rentals for Not a Holiday is between 668 to 758, 
+the confidence interval of Casual Rentals for Holiday (440 to 1514) is within the confidence 
+interval for Not a Holiday. Because of this, it looks like there is a significant difference 
+between the two groups, Holiday and Not a Holiday. */
+
+/************************************************************************/
+
+/************************************************************************/
+/**********      BEGINNING: GRAPHICS TO TELL STORY        ***************/
+/************************************************************************/
+
+
+/********************************************************/
+/*********  BEGINNING: stratified boxplot ***************/
+/********************************************************/
+
+/*Additional requirement:
+
+    When you do your graphic, you need to have two titles (a regular title and a subtitle) of DIFFERENT heights. 
+    (You choose the content of the regular title and the subtitle.) 
+    The code and discussion on how to do this is in the SAS Code file for Topic 4 Wilcoxon Rank Sum.
+*/
+
+/* Notice fillattrs=(color=cx003178); changes the fill color to whatever branding you want. 
+	cx003178 is a SAS Graphics Color that uses RGB to define colors.
+	To use this on your own, add "CX" to the beginning of your "Hex Code" (like #FFCCFF, but do not include the #), and 
+	use it insert it after 'color = ' in 'fillattrs'. 
+	It would look something like this: fillattrs=(color=CXFFCCFF). */
+
+ods graphics on / height=5 in width=6 in  outputfmt=static;
+title1 height=14pt 'Side by Side Boxplots of Casual Bike Rentals';
+title2 height=12pt 'Stratified by Holidays';
+proc sgplot data = work.bike;
+	vbox 'Casual Rentals'n / 
+		category ='Holiday Status'n 
+		boxwidth = 0.3 
+		displaystats = (MEAN DATAMAX Q3 MEDIAN Q1 DATAMIN)
+		fillattrs = (color = CX99D44C)
+		medianattrs = (color = CXC90A60 thickness = 2)
+		meanattrs = (color = CX5D0AC9 size = 18)
+		whiskerattrs = (color = CX5D0AC9 thickness = 1);
+	yaxis label = 'Casual Bike Rentals Per Day';
+	xaxis label = "Holiday Status";
+run;
+title;
+ods graphics off;
+/* We cannot observe a difference between the medians of Casual Bike Rentals 
+	for Holiday and Not a Holiday. */
+
+/********************************************************/
+/*********  END: stratified boxplot ***************/
+/********************************************************/
