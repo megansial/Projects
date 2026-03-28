@@ -1,0 +1,324 @@
+title: "Pollinators in the Northwest Final Project - Megan Sierra and Vernice Le"
+
+# Megan Sierra's Code
+library(dplyr)
+library(readr)
+library(ggplot2)
+library(ggrepel)
+# install.packages("rcartocolor")
+library(rcartocolor)
+
+# Import Datatset and Rename
+pollinators_data <- read.csv("main_pollinator_plant.csv")
+View(pollinators_data)
+
+summary(pollinators_data)
+
+# Research Question: 1. Are pollinator numbers changing over the years?
+
+# i want to group by year_collected so we can see how many pollinators there are per year
+# find the amount of pollinators per year
+total_years <- pollinators_data |>
+  distinct(year_collected) |>
+  nrow()
+
+poll_num <- pollinators_data |>
+  group_by(year_collected) |>
+  summarise(pollinators_per_year = n() / total_years, .groups = "drop")
+View(poll_num)
+
+minmax <- poll_num |>
+  filter(pollinators_per_year == min(pollinators_per_year) | pollinators_per_year == max(pollinators_per_year))
+
+minmax |>
+  glimpse()
+
+
+# create labels with minmax
+minmax <- minmax |>
+  mutate(label = case_when(pollinators_per_year == min(pollinators_per_year) ~ paste("Lowest Amount of Pollinators \nin 2005-2017"),
+                           pollinators_per_year == max(pollinators_per_year) ~ paste("Highest Amount of Pollinators \nin 2005-2017")))
+
+minmax |>
+  glimpse()
+
+
+# Create a Time-series plot
+poll_num |>
+  ggplot(aes(x = year_collected, y = pollinators_per_year, fill = year_collected)) +
+  geom_line(linewidth = 2, color='goldenrod1') +
+  geom_point(color='darkorange2', size = 3) +
+  geom_label_repel(aes(label=label), # place the new label here equal to 'label'
+                   family = 'serif',
+                   color = 'chocolate4',
+                   fontface= 'bold',
+                   fill = alpha('white', 0.7),
+                   size=4,
+                   nudge_y = 1,
+                   nudge_x = c(-2,-2),
+                   alpha=1,
+                   data = minmax) +
+  labs(x = "Years",
+       y = "Number of Pollinators",
+       title = "How the Amount of Pollinators Has Changed Over the Years",
+       subtitle = "From 2005 - 2017") +
+  theme_linedraw() +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(family = "Times New Roman", face="bold", size = 18),
+        plot.subtitle = element_text(family = "Times New Roman", size = 12)) +
+  theme(axis.title.x = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.x = element_text(family = "Times New Roman", size = 14),
+        axis.title.y = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.y = element_text(family = "Times New Roman", size = 14)) +
+  scale_y_continuous(limits = c(0, 1700),breaks = seq(0, 1700, by = 200)) +
+  scale_x_continuous(limits = c(2005, 2017), breaks = seq(2005, 2017, by = 1))
+
+# Create a Bar Chart
+poll_num |>
+  ggplot(aes(x = year_collected, y = pollinators_per_year, fill = year_collected)) +
+  geom_bar(stat = 'identity') + 
+  geom_label_repel(aes(label=label), # place the new label here equal to 'label'
+                   family = 'serif',
+                   color = 'chocolate4',
+                   fontface= 'bold',
+                   fill = alpha('white', 0.7),
+                   size=4,
+                   nudge_y = c(300,1000),
+                   nudge_x = 0,
+                   alpha=1,
+                   data = minmax) +
+  labs(x = "Years",
+       y = "Number of Pollinators",
+       title = "How the Amount of Pollinators Has Changed Over the Years",
+       subtitle = "From 2005 - 2017") +
+  theme_light() +
+  theme(legend.position = "none") +
+  theme(plot.title = element_text(family = "Times New Roman", face="bold", size = 18),
+        plot.subtitle = element_text(family = "Times New Roman", size = 12)) +
+  theme(axis.title.x = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.x = element_text(family = "Times New Roman", size = 14.5),
+        axis.title.y = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.y = element_text(family = "Times New Roman", size = 14.5)) +
+  scale_y_continuous(limits = c(0, 2000),breaks = seq(0, 2000, by = 200)) +
+  scale_x_continuous(limits = c(2004, 2018), breaks = seq(2004, 2018, by = 2)) +
+  scale_fill_carto_c(palette = "OrYel", direction = -1)
+
+# 3. How does pollinator diversity vary among sites?
+# Create Grouped Bar Chart
+
+# Calculate pollinator diversity (unique genera per site)
+pollinator_diversity <- pollinators_data |>
+  group_by(location_name) |>
+  summarise(unique_pollinator_genera = n_distinct(pollinator_genus, na.rm = TRUE)) %>%
+  arrange(desc(unique_pollinator_genera))
+
+# Identify top 10 most diverse sites
+top10_sites <- pollinator_diversity |>
+  slice_head(n = 10) |>
+  pull(location_name)
+
+# Filter dataset for only those sites
+df_top10 <- pollinators_data |>
+  filter(location_name %in% top10_sites)
+
+# Count pollinator genus frequency per site
+genus_freq <- df_top10 |>
+  group_by(location_name, pollinator_genus) |>
+  summarise(frequency = n(), .groups = "drop")
+
+# Keep top 5 most frequent genera per site
+genus_top5 <- genus_freq |>
+  group_by(location_name) |>
+  slice_max(order_by = frequency, n = 5) %>%
+  ungroup()
+View(genus_top5)
+
+minmax <- genus_top5 |>
+  filter(frequency == min(frequency) | frequency == max(frequency))
+
+minmax |>
+  glimpse()
+
+
+# Create labels with minmax
+minmax <- minmax |>
+  mutate(label = case_when(frequency == min(frequency) ~ paste(pollinator_genus, ": ", frequency, "\nLowest Amount of Pollinators \nin ", location_name),
+                           frequency == max(frequency) ~ paste(pollinator_genus, ": ", frequency, "\nHighest Amount of Pollinators \nin ", location_name)))
+
+minmax |>
+  glimpse()
+
+# Create a grouped bar chart
+genus_top5 |>
+ggplot(aes(x = location_name, y = frequency, fill = pollinator_genus)) +
+  geom_bar(stat = "identity", position = "dodge") +
+  geom_label_repel(data = minmax,
+    aes(x = location_name, y = frequency, label = label),
+    family = "serif",
+    color = "black",
+    fontface = "bold",
+    fill = alpha("white", 0.7),
+    size = 4,
+    nudge_y = c(100,250),
+    nudge_x = 2,
+    alpha = 1) +
+  labs(title = "Top 5 Pollinator Genera per Site",
+       subtitle = "In Top 10 Most Diverse Sites",
+    x = "Site (Location Name)",
+    y = "Frequency of Pollinator Genus",
+    fill = "Pollinator Genus") +
+  theme_light(base_size = 13) +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1),
+    legend.position = "right") +
+  theme(plot.title = element_text(family = "Times New Roman", face="bold", size = 18),
+        plot.subtitle = element_text(family = "Times New Roman", size = 12)) +
+  theme(axis.title.x = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.x = element_text(family = "Times New Roman", size = 14),
+        axis.title.y = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.y = element_text(family = "Times New Roman", size = 14))
+
+# Identify the top 10 locations with most specimens
+top_locations <- pollinators_data |>
+  count(location_name, sort = TRUE) |>
+  head(10) |>
+  pull(location_name)
+
+# Filter data to only include top 10 locations
+pollinator_top_locations <- pollinators_data |>
+  filter(location_name %in% top_locations)
+
+pollinator_top_locations |>
+  glimpse()
+
+library(see)
+# Create half-violin plots for pollinator diversity
+pollinator_top_locations |>
+  ggplot(aes(x = location_name, y = as.numeric(factor(pollinator_species)))) +
+  geom_violinhalf(fill = 'darkorange2', alpha = 0.7) +
+  geom_boxplot(width = 0.1, fill = 'white') +
+  labs(x = "Location Site",
+       y = "Frequency of Pollinator Genus",
+       title = "Pollinator Diversity by Location Site",
+       subtitle = "Top 10 Sites with Most Specimens - Distribution Shown") +
+  theme_classic() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1)) +
+  theme(plot.title = element_text(family = "Times New Roman", face="bold", size = 18),
+        plot.subtitle = element_text(family = "Times New Roman", size = 12)) +
+  theme(axis.title.x = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.x = element_text(family = "Times New Roman", size = 14),
+        axis.title.y = element_text(family = "Times New Roman", face = 'bold', size = 15),
+        axis.text.y = element_text(family = "Times New Roman", size = 14))
+
+# Vernice Le's Code
+# load packages 
+library(readr)
+library(ggplot2)
+library(dplyr)
+library(tidyverse)
+
+# import dataset
+main_pollinator_plant <- read_csv("main_pollinator_plant.csv")
+# make a copy
+pollinators <- main_pollinator_plant
+View(pollinators)
+
+## RESEARCH QUESTION ##
+## which plant species receive the most pollinator visits? ##
+## and do visit rates differ significantly among species? ##
+
+## VISUALIZATION 1: vertical bar chart showing total visits per plant species ##
+# remove all rows that dont have a plant species listed
+plantspecies <- pollinators |>
+  filter(!is.na(plant_species) & plant_species != "") # removes rows w/ NA and empty values
+
+totalvisits <- plantspecies |>
+  group_by(plant_species) |>
+  summarise(visits = n())
+
+totalvisits <- plantspecies |>
+  group_by(plant_species) |>
+  summarise(visits = n(), .groups = "drop") |> # ungroup data to keep as normal data frame 
+  arrange(desc(visits))
+
+top10visits <- totalvisits |>
+  slice_head(n = 10)
+
+top10visits |>
+  ggplot(aes(x = visits,y = reorder(plant_species, visits), fill = plant_species)) + 
+  geom_bar(stat = "identity", color = "black") +
+  scale_fill_manual(values = c("#FF6F61","#6B5B95","#88B04B","#F7CAC9","#92A8D1",
+                               "#C71585","#FFD700","#40E0D0","#FF8C00","#DA70D6")) +
+  labs(x = "Total Pollinator Visits",
+       y = "Plant Species",
+       title = "Top 10 Plant Species Visited by Pollinators",
+       subtitle = "In the Pacific Northwest from 2005 to 2017") +
+  theme_classic() + 
+  theme(plot.title = element_text(family = "Times New Roman",
+                                  face = "bold",
+                                  size = 16),
+        plot.subtitle = element_text(family = "Times New Roman",
+                                     size = 12.5),
+        axis.text.x = element_text(family = "Times New Roman",
+                                   size = 14),
+        axis.text.y = element_text(family = 'Times New Roman',
+                                   size = 14),
+        axis.title.x = element_text(family = 'Times New Roman', 
+                                    face = 'bold',
+                                    size = 16),
+        axis.title.y = element_text(family = 'Times New Roman', 
+                                    face = 'bold',
+                                    size = 16),
+        legend.position = "none")
+
+## VISUALIZATION 2: heat map showing which pollinator families visit which plant species most frequently ##  
+library(viridis) # colorblind friendly!
+
+# we already founf top 10 plants with the most visits
+# now we find top 10 pollinators making these visits
+totalpollinators <- plantspecies |>
+  filter(!is.na(pollinator_family) & pollinator_family != "") |> # removes rows w/ NA and empty values
+  group_by(pollinator_family) |>
+  summarise(visits = n(), .groups = "drop") |> # ungroup data to keep as normal data frame 
+  arrange(desc(visits)) 
+
+top10pollinators <- totalpollinators |>
+  slice_head(n = 10)
+
+pollheatmap <- plantspecies |>
+  semi_join(top10visits, by = "plant_species") |> # only keeps top 10 plant species
+  semi_join(top10pollinators, by = "pollinator_family") |> # only keeps top 10 pollinator families
+  group_by(plant_species, pollinator_family) |>
+  summarise(visits = n(), .groups = "drop") # ungroup data to keep as normal data frame 
+
+pollheatmap |>
+  ggplot(aes(x = pollinator_family, y = reorder(plant_species, -visits))) +
+  geom_tile(aes(fill = visits), color = "white") +
+  theme_classic() +
+  scale_fill_viridis(option = "A") +
+  labs(x = "Pollinator Family",
+       y = "Plant Species",
+       title = "Top 10 Pollinator Families Visiting the Top 10 Plant Species",
+       subtitle = "In the Pacific Northwest from 2005 to 2017",
+       fill = "Total Visits") +
+  theme(
+    plot.title = element_text(family = "Times New Roman", 
+                              face = "bold.italic",
+                              size = 18),
+    plot.subtitle = element_text(family = "Times New Roman",
+                                 face = "italic",
+                                 size = 12),
+    axis.text.x = element_text(family = "Times New Roman",
+                               angle = 45,
+                               hjust = 1,
+                               size = 15),
+    axis.text.y = element_text(family = "Times New Roman",
+                               size  = 15),
+    axis.title.x = element_text(family = "Times New Roman",
+                                face = "bold",
+                                size = 16),
+    axis.title.y = element_text(family = "Times New Roman",
+                                face = "bold",
+                                size = 16),
+    legend.title = element_text(family = "Times New Roman",
+                                face = "bold",
+                                size = 12))
