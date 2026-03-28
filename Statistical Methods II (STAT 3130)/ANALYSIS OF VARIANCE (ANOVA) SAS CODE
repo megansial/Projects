@@ -1,0 +1,368 @@
+/************* ONE-WAY ANOVA - Deliverable 4 ************************/
+/* ONE Categorical with K Levels predicting ONE Quantitative Value */
+/****************************************************************************************/
+
+/* RESEARCH QUESTION: Does average salary category predict the GlassDoor rating of the company for the job listing? 
+	
+	Use alpha = .05. Consider and refer to all three post hoc tests to make your conclusion. 
+	(GlassDoor rating is column E in the data set.) */
+
+/* Unit of observation: Job Listing on Glassdoor
+Categorical: Average Salary 
+Levels: 
+1 = Under $81,000 
+2 = $81,000 to < $111,500 
+3 = $111,500 and over
+
+Quantitative: Glassdoor Rating
+
+
+Choice of Tests: ONE Categorical with K Levels predicting ONE Quantitative Value
+	o	One-way ANOVA 	(Normal, Homogeneous)
+	o	Welch Test on Raw Data 	(Normal, Not Homogeneous)
+	o	Kruskal Wallis Test on Shape, Center, and Spread 	(Not Normal, Homogeneous)
+	o	WELCH TEST ON RANKED DATA 	(Not Normal, Not Homogeneous)
+*/
+
+
+/************************************************************************/
+/**********      BEGIN: IMPORT DATA       *********************/
+/************************************************************************/
+
+/* Generated Code (IMPORT) */
+/* Source File: data_scientist_2021.xlsx */
+/* Source Path: /home/u64307477/STAT 3130/datasets */
+/* Code generated on: 3/15/26, 4:32 PM */
+
+%web_drop_table(WORK.data_sci);
+
+
+FILENAME REFFILE '/home/u64307477/STAT 3130/datasets/data_scientist_2021.xlsx';
+
+PROC IMPORT DATAFILE=REFFILE
+	DBMS=XLSX
+	OUT=WORK.data_sci;
+	GETNAMES=YES;
+RUN;
+
+PROC CONTENTS DATA=WORK.data_sci; RUN;
+
+
+%web_open_table(WORK.data_sci);
+
+/************************************************************************/
+/**********      END: IMPORT DATA       *********************/
+/************************************************************************/
+
+
+/****************************************************************************/
+/*******BEGINNING: KEEP VARIABLES OF INTEREST AND RENAME LEVELS *************/
+/****************************************************************************/
+
+data work.data_sci;
+set work.data_sci (keep = "Avg Salary(K)"n Rating);
+run;
+/* The research question requires only two variables from the dataset: 
+	average salary and rating. We create code to keep only those two variables.*/
+	
+data work.data_sci;
+set work.data_sci;
+rename rating  = "Glassdoor Rating"n;
+rename "Avg Salary(K)"n = "Avg Salary"n;
+run;
+/*Avg Salary(K)s and Rating are quantitative variables that we have renamed to 
+	“Avg Salary” and “Glassdoor Rating.” There is no need to run PROC FREQ to see 
+	if there is any indication of a character being used as a missing value.*/
+
+proc contents data=work.data_sci;
+run;
+
+/****************************************************************************/
+/*********** END: KEEP VARIABLES OF INTEREST AND RENAME LEVELS *************/
+/****************************************************************************/
+
+/*******************************************************************/
+/****** BEGIN: EXAMINE THE DATA FOR MISSING VALUES, TYPOS AND OUTLIERS ***/
+/*******************************************************************/ 
+
+/*          FIRST EXAMINE THE QUANTITATIVE VARIABLE.         */
+
+/* CHECK FOR UNUSUAL VALUES. */
+ods graphics on / outputfmt=svg;
+proc means data = work.data_sci min Q1 median Q3 max maxdec=3;
+ 	var "Glassdoor Rating"n;
+run;
+ods graphics off;
+/* No repeats of values for 25% of the data. 
+No unusual maximum (999). 
+No message from SAS that there are missing values tailed at the bottom of the table.
+However, the minimum is -1, so we must delete it*/
+
+/*DELETE THE -1 FROM GLASSDOOR RATING*/
+data work.data_sci_clean;
+set work.data_sci;
+if "Glassdoor Rating"n = -1 then delete;
+run;
+
+/* Check to see what the actual minimum and maximum is for Glassdoor Ratings */
+proc means data=data_sci_clean n min max maxdec=2;
+	var "Glassdoor Rating"n;
+run;
+
+/*HIGHLIGHT THIS BLOCK OF CODE FOR THE STRATIFIED BOXPLOT TO WORK*/
+/* CHECK FOR OUTLIERS. */
+ods graphics on / height=4 in width=6 in outputfmt=svg;
+TITLE height=1.5 'Stratified Box Plot for Rating by all Three Categories of Average Salary';
+proc sgpanel data = work.data_sci_clean;
+panelby "Salary Category"n / novarname rows=1 columns=3;
+vbox "Glassdoor Rating"n;
+RUN;
+title;
+ods graphics off;
+/* Across all three salary categories, there are a few outliers to the bottom of the box plot, 
+but there are not any unusual values in the data points, indicating no missing values. 
+All the ratings are within range between 1.9 through 5, which confirms that we have successfully 
+deleted -1 from the dataset.
+The boxplot has no unusual minimum (-1) or maximum (999).
+*/
+
+/*HIGHLIGHT THIS BLOCK OF CODE FOR THE STRATIFIED HISTOGRAM TO WORK*/
+/* CHECK FOR SPIKES. */
+ods graphics on / height=3 in width=7 in outputfmt=svg;
+title height=1.5 'Stratified Histogram of Glassdoor Rating by Avg Salary';
+proc sgpanel data=work.data_sci_clean;
+    panelby "Salary Category"n / novarname rows=1 columns=3;
+    histogram "Glassdoor Rating"n;
+    colaxis label='Glassdoor Rating'
+            labelattrs=(size=12)
+            valueattrs=(size=12);
+    rowaxis label='Frequency'
+            labelattrs=(size=12)
+            valueattrs=(size=12);
+run;
+title;
+ods graphics off;
+/*Across all three salary categories, the histogram displaying “$111.5k and over” shows more frequency 
+in higher ratings and less variety in lower ratings, compared to the other two salary categories. 
+There are no unusual spikes that indicate missing values. All the ratings are within range between 
+1.9 through five, which confirms that we have successfully deleted -1 from the dataset.
+No unusual minimum (-1) or maximum (999).
+*/
+
+/*          SECOND, EXAMINE THE CATEGORICAL VARIABLE.         */
+
+/* We did not need to use PROC FREQ to look for categorical missing values 
+in the quantitative variable because the variable came in as numeric, not 
+character (categorical). However, we do need to use proc freq to check the 
+categorical variable of Avg Salary for any missing values. */
+
+ods graphics on / outputfmt=svg;
+PROC FREQ data = work.data_sci_clean;
+	Tables 'Avg Salary'n;
+run;
+ods graphics off;
+/* There are no indicators of missing values listed (like ".", "na", "NA",)
+or counted by SAS at the bottom of the table.*/
+
+/*******************************************************************/
+/** END: EXAMINE THE DATA FOR MISSING VALUES, TYPOS AND OUTLIERS ***/
+/*******************************************************************/ 
+
+/***************************************************************/
+/*** Getting the values for the 33rd and 66th percentile. ***/
+/***************************************************************/
+proc univariate data=work.data_sci_clean;
+    var "Avg Salary"n;
+    output out=work.data_sci_33_66
+	pctlpts = 33, 66
+	pctlpre = P_;
+run;
+
+title "The 33rd and 66th percentile";
+proc print data=work.data_sci_33_66 noobs;
+run;
+**The correct 33rd percentile is 81. The 66th percentile is 111.5. **;
+
+
+/* break the average salaries (T) in the data scientist data set into thirds. 
+Include the lower bound of the interval but not the upper bound when you break into levels. 
+Use 33rd percentile, 66 percentile to break into thirds. 
+This is done with if-then-else programming. */
+data work.data_sci_clean;
+set work.data_sci_clean;
+ 	if "Avg Salary"n < 81 then "Salary Category"n = 1;
+	else if 81 <= "Avg Salary"n < 111.5 then "Salary Category"n = 2;
+	else if "Avg Salary"n >= 111.5 then "Salary Category"n = 3;
+RUN;
+
+* Break the data into categories using 1, 2, 3 so the levels are ordered properly;
+* Step 2: Create the format equivalents you want for 1, 2, 3. They can have spaces in the formats.;
+Proc format;
+Value salaryformat
+1 = "Under $81,000"
+2 = "$81,000 to < $111,500"
+3 = "$111,500 and over";
+run;
+
+* Step 3: Attach the format statement to the data set. ;
+data work.data_sci_clean;
+set work.data_sci_clean;
+format "Salary Category"n salaryformat.;
+run;
+
+PROC FREQ data=work.data_sci_clean;
+tables "Salary Category"n;
+run;
+/*The amount of job listings in each of the three groups are  233 246 252.*/
+
+/*******************************************************************************/
+/*** BEGINNING: Check for Normality of Rating for All Three Avg Salaries(K) ***/
+/*****************************************************************************/
+/* 
+H_0: All ratings for all three average salaries follow a normal distribution
+H_a: All ratings for all three average salaries do NOT follow a normal distribution.
+*/
+
+
+
+ods graphics on / height=8 in width=6 in  outputfmt=svg;
+title 'QQ Plots for Rating by Average Salary';
+proc univariate data=work.data_sci_clean normaltest plots;  
+	class "Salary Category"n; /*CATEGORICAL*/
+	var "Glassdoor Rating"n; /*QUANTITATIVE*/
+title;
+
+/* NORMALITY CONCLUSION: Since the Glassdoor Ratings for all three-salary categories are 
+approximately not normal enough, we use the Central Limit Theorem to conclude that the x-bar
+is approximately normal because all three salary categories have sample sizes (n = 233, 246, 252) 
+greater than 30 (n>30). Therefore, we should choose a parametric test to analyze these three salary categories. */
+/********************************************************************/
+/*** END: Check for Normality of Rating for All Three Diets ***/
+/********************************************************************/
+
+
+/************************************************************/
+/*** BEGINNING: Levene's Homogeneity Test ***/
+/************************************************************/ 
+ods graphics on / outputfmt=svg;
+proc ANOVA data=WORK.data_sci_clean;
+   class "Salary Category"n;
+   model "Glassdoor Rating"n = "Salary Category"n;
+   means "Salary Category"n / hovtest=levene(type=SQUARE); /* second check on homogeneity */
+run;
+ods graphics off;
+
+/* Conclusion: Since the p-value of 0.5813 is greater than the alpha of 0.05, we cannot reject 
+the H_0: σ_(<81K)^2=σ_(81K to<111.5K)^2=σ_(>111.5K)^2. The sample variances are homogenous enough to pool. */
+
+/* Thus, with normality of the x ̅  distributions for all three average salary categories, 
+and homogeneity of the x distributions for all three average salary categories, 
+we choose ANOVA as the appropriate test. */
+
+/************************************************************/
+/*** END: Levene Homogeneity Test ***/
+/************************************************************/ 
+
+
+/**********************************************/
+/*********** BEGINNING: ONE-WAY ANOVA**********/
+/**********************************************/
+
+/* ONE-WAY ANOVA PROCEDURE  */
+ods graphics on / outputfmt=svg;
+proc ANOVA data=WORK.data_sci_clean;
+   class "Salary Category"n;
+   model "Glassdoor Rating"n = "Salary Category"n;
+   means "Salary Category"n;
+run;
+quit;
+ods graphics off;
+/* sample averages (3.782, 3.666, 3.611)*/
+
+/*Conclusion:	Since 0.0032 is less than the significance level of 0.05, 
+we reject that the hypothesis that all salary categories have the same average Glassdoor rating. 
+We are 95% confident that at least one salary category has a different average Glassdoor rating, 
+however we would need a post-hoc test to find out which categories are different.*/
+
+proc means data=work.data_sci_clean;
+var "Glassdoor Rating"n;
+run;
+/* overall average mean (3.688) */
+
+/**********************************************/
+/*********** END: ONE-WAY ANOVA****************/
+/**********************************************/
+
+
+/*************************************************/
+/*********** BEGINNING: POST-HOC TESTS  **********/
+/*************************************************/
+
+/* YOU CAN RUN THEM ALL AT ONCE TO REDUCE THE REDUNDANT ANOVA TABLES ON EACH SEPARATE RUN.  */
+
+ods graphics on / outputfmt=svg;
+proc anova data=WORK.data_sci_clean;
+   class "Salary Category"n;
+   model "Glassdoor Rating"n = "Salary Category"n;
+   means "Salary Category"n / bon lines tukey lines lsd lines alpha = .05;
+run;
+ods graphics off;
+
+/*Since all three post-hoc’s agree that “$111,500 and over” (3.7817 points) is significantly 
+different than “Under $81,000” (3.6112 points), we conclude that there is a significant 
+difference in the ratings.*/
+
+
+/*************************************************/
+/*********** END: POST-HOC TESTS  **********/
+/*************************************************/
+
+
+
+
+/***************************************************************************/
+/*********** BEGINNING: TABLE OF STRATIFIED CONFIDENCE INTERVALS  **********/
+/***************************************************************************/
+
+/*Shows us the upper and lower confidence limits for all three salary categories*/
+ods graphics on / height=3 in width=2 in outputfmt=svg;
+TITLE1 "Confidence Intervals";
+TITLE2 "for Average Salaries";
+PROC MEANS DATA = work.data_sci_clean NONOBS nolabel LCLM UCLM maxdec=2 alpha=.05;
+      class "Salary Category"n;  /*CATEGORICAL*/
+      VAR "Glassdoor Rating"n;   /*QUANTITATIVE*/
+RUN; 
+TITLE;
+ods graphics off;
+
+/*********************************************************************/
+/*********** END: TABLE OF STRATIFIED CONFIDENCE INTERVALS  **********/
+/*********************************************************************/
+
+
+/******************************************************************************************/
+/*** BEGINNING: Stratified VERTICAL Confidence Intervals WITH LINE CONNECTING THE MEANS ***/
+/******************************************************************************************/
+data work.data_sci_MAXDEC;
+set work.data_sci_clean;
+format 'Glassdoor Rating'n 6.2;
+run;
+
+ods graphics on / height=4 in width=5 in outputfmt=svg;
+TITLE 'Stratified Vertical Confidence Intervals for GlassDoor Ratings by Salary Category';
+proc sgplot data=data_sci_MAXDEC noautolegend;
+	vline "Salary Category"n / response='GlassDoor Rating'n stat=mean limitstat=clm datalabelattrs=(size=10 color="#13478C") 
+	datalabel="Glassdoor Rating"n markers;
+    xaxis label="Salary Category";
+    yaxis label="GlassDoor Rating";
+run;
+title;
+ods graphics off;
+
+/*We are confident that the average salary can predict the Glassdoor rating of a company. 
+Companies that have job listings with salaries of $111,500 and over, are more likely to 
+have a higher company rating on Glassdoor, showing more satisfaction from employees within 
+the company.*/
+/******************************************************************************************/
+/*** END: Stratified VERTICAL Confidence Intervals WITH LINE CONNECTING THE MEANS ***/
+/******************************************************************************************/
